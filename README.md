@@ -32,7 +32,8 @@ output/
         20240713_153044.a1b2c3d4e5f60718.jpg
 ```
 
-- Places duplicates into a `duplicates` folder under the matching day. When two
+- Places duplicates into a `duplicates` folder at the root of the photo/video
+  output folder, keeping the `year/month/day` structure inside it. When two
   files have the same date and thumbprint, the smaller file is treated as the
   duplicate.
 

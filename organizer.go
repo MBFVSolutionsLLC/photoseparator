@@ -234,15 +234,15 @@ func destinationFor(file ProcessedFile, duplicate bool, opts Options, used map[s
 	if file.Kind == KindVideo {
 		base = opts.VideoOutDir
 	}
-	parts := []string{
-		base,
-		file.Date.Format("2006"),
-		file.Date.Format("01"),
-		file.Date.Format("02"),
-	}
+	parts := []string{base}
 	if duplicate {
 		parts = append(parts, "duplicates")
 	}
+	parts = append(parts,
+		file.Date.Format("2006"),
+		file.Date.Format("01"),
+		file.Date.Format("02"),
+	)
 	dir := filepath.Join(parts...)
 	name := fmt.Sprintf("%s.%s%s", file.Date.Format("20060102_150405"), file.Thumbprint, normalizedExt(file.Path))
 	return uniquePath(filepath.Join(dir, name), used)
