@@ -44,9 +44,18 @@ func inferDate(path string, kind MediaKind) time.Time {
 
 	info, err := os.Stat(path)
 	if err == nil {
-		return info.ModTime()
+		return olderFileTime(info)
 	}
 	return time.Now()
+}
+
+// olderFileTime returns the earlier of the created and modified times.
+func olderFileTime(info os.FileInfo) time.Time {
+	date := info.ModTime()
+	if created, ok := fileCreationTime(info); ok && created.Year() >= 1850 && created.Before(date) {
+		return created
+	}
+	return date
 }
 
 func chooseBestDate(candidates []time.Time) time.Time {
