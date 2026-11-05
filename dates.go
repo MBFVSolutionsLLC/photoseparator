@@ -39,7 +39,14 @@ func inferDate(path string, kind MediaKind) time.Time {
 	}
 
 	if len(candidates) > 0 {
-		return chooseBestDate(candidates)
+		date := chooseBestDate(candidates)
+		if info, err := os.Stat(path); err == nil {
+			fileDate := olderFileTime(info)
+			if fileDate.Year() >= 1850 && fileDate.Before(date) {
+				return fileDate
+			}
+		}
+		return date
 	}
 
 	info, err := os.Stat(path)
