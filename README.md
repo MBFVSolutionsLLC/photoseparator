@@ -11,6 +11,8 @@ capture date, and organizes the files into dated photo and video output folders.
   - the photo output directory
   - the video output directory
 - Recursively finds common photo and video files.
+- Skips the photo and video output directories if they are inside the root directory.
+- Requires output directories to differ from the root directory.
 - Computes a perceptual thumbprint so resized copies of the same picture usually
   produce the same value.
 - For videos, extracts a frame near the middle using `ffmpeg` when available and
@@ -36,9 +38,10 @@ Native image decoding supports `.jpg`, `.jpeg`, `.png`, `.gif`, and
 uncompressed 24-bit or 32-bit `.bmp`.
 
 If `ffmpeg` is installed and available on `PATH`, videos are processed by
-extracting a middle frame. `ffprobe` is also used, when available, to read video
-creation timestamps. Supported video extensions include `.mp4`, `.mov`, `.m4v`,
-`.avi`, `.mkv`, `.webm`, `.wmv`, `.3gp`, `.mts`, and `.m2ts`.
+extracting a middle frame when `ffprobe` can read the duration; otherwise the
+first frame is thumbprinted. `ffprobe` is also used, when available, to read
+video creation timestamps. Supported video extensions include `.mp4`, `.mov`,
+`.m4v`, `.avi`, `.mkv`, `.webm`, `.wmv`, `.3gp`, `.mts`, and `.m2ts`.
 
 Files such as HEIC, TIFF, and WEBP are detected as photos. They can be
 thumbprinted when either `ffmpeg` or ImageMagick's `magick` command can convert
@@ -68,3 +71,6 @@ go run . -workers 12 -copy
 - `-workers`: number of concurrent file processors. Defaults to CPU count.
 - `-copy`: copy files instead of moving them.
 - `-dry-run`: print planned actions without moving or copying files.
+
+If any files are skipped or fail during processing, the application reports the
+failure and exits with a non-zero status.
