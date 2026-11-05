@@ -19,7 +19,9 @@ capture date, and organizes the files into dated photo and video output folders.
   produce the same value.
 - For videos, extracts a frame near the middle using `ffmpeg` when available and
   thumbprints that frame.
-- Infers dates from JPEG EXIF, filename patterns, parent folders, and file timestamps.
+- Infers dates from JPEG EXIF, media metadata, filename patterns, parent folders,
+  and file timestamps. The earlier valid Created or Modified timestamp takes
+  precedence over a later inferred capture date for both photos and videos.
 - Organizes files as:
 
 ```text
@@ -54,6 +56,10 @@ them to a temporary JPEG frame.
 ```powershell
 go run .
 ```
+
+The application displays its version when it starts. After scanning and building
+the plan, it lists every source and destination and waits for a key on Windows
+(Enter on other platforms) before moving or copying any files.
 
 To build and run with the production directories configured in `runprod.ps1`:
 

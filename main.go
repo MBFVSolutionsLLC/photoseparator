@@ -9,10 +9,11 @@ import (
 	"strings"
 )
 
-// Version can be overridden at build time with -ldflags "-X main.Version=x.y.z".
-var Version = "1.0.0"
+const appVersion = "1.0.0"
 
 func main() {
+	fmt.Printf("Photo Separator v%s\n", appVersion)
+
 	workers := flag.Int("workers", runtime.NumCPU(), "number of concurrent workers")
 	copyMode := flag.Bool("copy", false, "copy files instead of moving them")
 	dryRun := flag.Bool("dry-run", false, "show planned actions without changing files")
@@ -39,6 +40,7 @@ func main() {
 		Copy:         *copyMode,
 		DryRun:       *dryRun,
 		TempFrameDir: os.TempDir(),
+		Confirm:      waitForKey,
 	}
 
 	if err := Run(opts); err != nil {
@@ -48,7 +50,7 @@ func main() {
 }
 
 func confirm(reader *bufio.Reader, root, photoOut, videoOut string) bool {
-	fmt.Printf("\nPhoto Separator version %s\n", Version)
+	fmt.Printf("\nPhoto Separator version %s\n", appVersion)
 	fmt.Printf("  Source folder:      %s\n", root)
 	fmt.Printf("  Photo destination:  %s\n", photoOut)
 	fmt.Printf("  Video destination:  %s\n", videoOut)

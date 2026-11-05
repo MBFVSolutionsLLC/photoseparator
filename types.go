@@ -21,6 +21,7 @@ type Options struct {
 	Copy         bool
 	DryRun       bool
 	TempFrameDir string
+	Confirm      func() error
 }
 
 type MediaFile struct {

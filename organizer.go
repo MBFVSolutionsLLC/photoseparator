@@ -40,6 +40,12 @@ func Run(opts Options) error {
 	}
 
 	plan := buildPlan(successes, opts)
+	printPlan(plan, opts)
+	if len(plan) > 0 && opts.Confirm != nil {
+		if err := opts.Confirm(); err != nil {
+			return fmt.Errorf("start confirmation: %w", err)
+		}
+	}
 	for _, action := range plan {
 		if err := applyAction(action, opts); err != nil {
 			failures++
@@ -145,6 +151,7 @@ func processOne(file MediaFile, opts Options) ProcessedFile {
 type fileAction struct {
 	Source      string
 	Destination string
+	Kind        MediaKind
 	Duplicate   bool
 	Move        bool
 }
@@ -172,6 +179,7 @@ func buildPlan(files []ProcessedFile, opts Options) []fileAction {
 			actions = append(actions, fileAction{
 				Source:      file.Path,
 				Destination: dest,
+				Kind:        file.Kind,
 				Duplicate:   duplicate,
 				Move:        !opts.Copy,
 			})
@@ -182,6 +190,39 @@ func buildPlan(files []ProcessedFile, opts Options) []fileAction {
 		return actions[i].Source < actions[j].Source
 	})
 	return actions
+}
+
+func printPlan(actions []fileAction, opts Options) {
+	photoCount, videoCount := 0, 0
+	for _, action := range actions {
+		if action.Kind == KindPhoto {
+			photoCount++
+		} else if action.Kind == KindVideo {
+			videoCount++
+		}
+	}
+
+	mode := "MOVE"
+	if opts.Copy {
+		mode = "COPY"
+	}
+	fmt.Printf("Plan: %s %d photos to %s; %d videos to %s\n",
+		mode, photoCount, opts.PhotoOutDir, videoCount, opts.VideoOutDir)
+	if len(actions) == 0 {
+		fmt.Println("No files to process.")
+		return
+	}
+	fmt.Println("Planned actions:")
+	for _, action := range actions {
+		actionMode := "MOVE"
+		if !action.Move {
+			actionMode = "COPY"
+		}
+		if action.Duplicate {
+			actionMode += " DUPLICATE"
+		}
+		fmt.Printf("  %s %s: %s -> %s\n", actionMode, strings.ToUpper(string(action.Kind)), action.Source, action.Destination)
+	}
 }
 
 func (p ProcessedFile) KindKey() string {
