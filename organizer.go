@@ -16,7 +16,7 @@ func Run(opts Options) error {
 		return err
 	}
 
-	files, err := scanMedia(opts.RootDir)
+	files, err := scanMedia(opts.RootDir, opts.PhotoOutDir, opts.VideoOutDir)
 	if err != nil {
 		return err
 	}
@@ -47,6 +47,9 @@ func Run(opts Options) error {
 	}
 
 	fmt.Printf("Done. Processed %d files, skipped or failed %d files.\n", len(plan), failures)
+	if failures > 0 {
+		return fmt.Errorf("%d files skipped or failed", failures)
+	}
 	return nil
 }
 
