@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,20 +52,56 @@ func TestRunReturnsErrorWhenFilesAreSkipped(t *testing.T) {
 	root := t.TempDir()
 	photoOut := filepath.Join(t.TempDir(), "photos")
 	videoOut := filepath.Join(t.TempDir(), "videos")
-	if err := os.WriteFile(filepath.Join(root, "broken.jpg"), []byte("not a jpeg"), 0600); err != nil {
+	brokenFile := filepath.Join(root, "broken.jpg")
+	if err := os.WriteFile(brokenFile, []byte("not a jpeg"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	err := Run(Options{
-		RootDir:      root,
-		PhotoOutDir:  photoOut,
-		VideoOutDir:  videoOut,
-		Workers:      1,
-		TempFrameDir: t.TempDir(),
+	output := captureStdout(t, func() {
+		err := Run(Options{
+			RootDir:      root,
+			PhotoOutDir:  photoOut,
+			VideoOutDir:  videoOut,
+			Workers:      1,
+			TempFrameDir: t.TempDir(),
+		})
+		if err == nil {
+			t.Fatal("expected an error when a media file is skipped")
+		}
 	})
-	if err == nil {
-		t.Fatal("expected an error when a media file is skipped")
+	if !strings.Contains(output, "Done. Processed 0 files, skipped or failed 1 files.") {
+		t.Fatalf("summary missing from output:\n%s", output)
 	}
+	if !strings.Contains(output, "Skipped or failed files:\n  "+brokenFile+": ") {
+		t.Fatalf("failed file path and reason missing from output:\n%s", output)
+	}
+}
+
+func captureStdout(t *testing.T, run func()) string {
+	t.Helper()
+
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousStdout := os.Stdout
+	os.Stdout = writer
+	defer func() {
+		os.Stdout = previousStdout
+	}()
+
+	run()
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	output, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return string(output)
 }
 
 func TestRunDoesNotRescanOutputDirectoriesInsideRoot(t *testing.T) {

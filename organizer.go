@@ -29,10 +29,11 @@ func Run(opts Options) error {
 
 	successes := make([]ProcessedFile, 0, len(processed))
 	failures := 0
+	var failedFiles []fileFailure
 	for _, item := range processed {
 		if item.Err != nil {
 			failures++
-			fmt.Printf("SKIP %s: %v\n", item.Path, item.Err)
+			failedFiles = append(failedFiles, fileFailure{Path: item.Path, Err: item.Err})
 			continue
 		}
 		successes = append(successes, item)
@@ -41,16 +42,27 @@ func Run(opts Options) error {
 	plan := buildPlan(successes, opts)
 	for _, action := range plan {
 		if err := applyAction(action, opts); err != nil {
-			fmt.Printf("ERROR %s: %v\n", action.Source, err)
 			failures++
+			failedFiles = append(failedFiles, fileFailure{Path: action.Source, Err: err})
 		}
 	}
 
 	fmt.Printf("Done. Processed %d files, skipped or failed %d files.\n", len(plan), failures)
+	if len(failedFiles) > 0 {
+		fmt.Println("Skipped or failed files:")
+		for _, failure := range failedFiles {
+			fmt.Printf("  %s: %v\n", failure.Path, failure.Err)
+		}
+	}
 	if failures > 0 {
 		return fmt.Errorf("%d files skipped or failed", failures)
 	}
 	return nil
+}
+
+type fileFailure struct {
+	Path string
+	Err  error
 }
 
 func validateOptions(opts Options) error {
