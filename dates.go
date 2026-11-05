@@ -66,6 +66,19 @@ func chooseBestDate(candidates []time.Time) time.Time {
 		}
 	}
 	if !best.IsZero() {
+		for _, candidate := range candidates {
+			if candidate.Year() < 1850 || !candidate.Before(now) ||
+				candidate.Year() != best.Year() || candidate.YearDay() != best.YearDay() {
+				continue
+			}
+			candidateHasTime := candidate.Hour() != 0 || candidate.Minute() != 0 ||
+				candidate.Second() != 0 || candidate.Nanosecond() != 0
+			bestHasTime := best.Hour() != 0 || best.Minute() != 0 ||
+				best.Second() != 0 || best.Nanosecond() != 0
+			if candidateHasTime && (!bestHasTime || candidate.Before(best)) {
+				best = candidate
+			}
+		}
 		return best
 	}
 	return candidates[0]

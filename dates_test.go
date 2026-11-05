@@ -60,3 +60,20 @@ func TestInferDatePrefersEarlierFileTimeForPhotosAndVideos(t *testing.T) {
 		})
 	}
 }
+
+func TestInferDateKeepsTimeWhenFilenameOnlyProvidesDate(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "IMG-20240517-WA0042.jpg")
+	if err := os.WriteFile(path, []byte("media"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	selectedDate := time.Date(2024, time.May, 17, 21, 15, 44, 0, time.Local)
+	if err := os.Chtimes(path, selectedDate, selectedDate); err != nil {
+		t.Fatal(err)
+	}
+
+	date := inferDate(path, KindPhoto)
+	if got, want := date.Format("20060102_150405"), "20240517_211544"; got != want {
+		t.Fatalf("expected selected date time %s, got %s", want, got)
+	}
+}
