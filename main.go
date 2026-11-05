@@ -9,7 +9,11 @@ import (
 	"strings"
 )
 
+const appVersion = "1.0.0"
+
 func main() {
+	fmt.Printf("Photo Separator v%s\n", appVersion)
+
 	workers := flag.Int("workers", runtime.NumCPU(), "number of concurrent workers")
 	copyMode := flag.Bool("copy", false, "copy files instead of moving them")
 	dryRun := flag.Bool("dry-run", false, "show planned actions without changing files")
@@ -28,6 +32,7 @@ func main() {
 		Copy:         *copyMode,
 		DryRun:       *dryRun,
 		TempFrameDir: os.TempDir(),
+		Confirm:      waitForKey,
 	}
 
 	if err := Run(opts); err != nil {

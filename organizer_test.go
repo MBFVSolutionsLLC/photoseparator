@@ -1,6 +1,8 @@
 package main
 
 import (
+	"image"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -74,6 +76,57 @@ func TestRunReturnsErrorWhenFilesAreSkipped(t *testing.T) {
 	}
 	if !strings.Contains(output, "Skipped or failed files:\n  "+brokenFile+": ") {
 		t.Fatalf("failed file path and reason missing from output:\n%s", output)
+	}
+}
+
+func TestRunWaitsForConfirmationBeforeMovingFiles(t *testing.T) {
+	root := t.TempDir()
+	photoOut := filepath.Join(t.TempDir(), "photos")
+	videoOut := filepath.Join(t.TempDir(), "videos")
+	source := filepath.Join(root, "IMG_20240517_213045.png")
+	file, err := os.Create(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(file, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		file.Close()
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	confirmed := false
+	output := captureStdout(t, func() {
+		err := Run(Options{
+			RootDir:      root,
+			PhotoOutDir:  photoOut,
+			VideoOutDir:  videoOut,
+			Workers:      1,
+			TempFrameDir: t.TempDir(),
+			Confirm: func() error {
+				confirmed = true
+				if _, err := os.Stat(source); err != nil {
+					t.Fatalf("source should still exist before confirmation: %v", err)
+				}
+				if _, err := os.Stat(photoOut); !os.IsNotExist(err) {
+					t.Fatalf("photo output should not exist before confirmation, got %v", err)
+				}
+				return nil
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !confirmed {
+		t.Fatal("expected confirmation callback to be called")
+	}
+	if !strings.Contains(output, "Planned actions:\n  MOVE PHOTO: "+source+" -> "+photoOut) {
+		t.Fatalf("planned source and destination missing from output:\n%s", output)
+	}
+	if _, err := os.Stat(source); !os.IsNotExist(err) {
+		t.Fatalf("source should be moved after confirmation, got %v", err)
 	}
 }
 
