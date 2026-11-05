@@ -50,6 +50,15 @@ them to a temporary JPEG frame.
 go run .
 ```
 
+To build and run with the production directories configured in `runprod.ps1`:
+
+```powershell
+.\runprod.ps1
+```
+
+The script builds `photoseparator.exe` in the repository directory and runs it.
+Like the application default, it moves processed files from the source directory.
+
 Optional flags:
 
 ```powershell
