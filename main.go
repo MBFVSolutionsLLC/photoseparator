@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const appVersion = "1.0.0"
+const appVersion = "1.261105.1537"
 
 func main() {
 	fmt.Printf("Photo Separator v%s\n", appVersion)
