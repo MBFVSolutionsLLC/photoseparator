@@ -19,28 +19,44 @@ func videoThumbprint(path, tempDir string) (string, int, int, error) {
 		return "", 0, 0, fmt.Errorf("ffmpeg is required for video thumbprints")
 	}
 
-	args := []string{"-hide_banner", "-loglevel", "error", "-y"}
-	if duration, err := videoDuration(path); err == nil && duration > 0 {
-		args = append(args, "-ss", fmt.Sprintf("%.3f", duration.Seconds()/2))
-	}
-
 	frame := filepath.Join(tempDir, fmt.Sprintf("photoseparator-frame-%d.jpg", time.Now().UnixNano()))
 	defer os.Remove(frame)
 
-	args = append(args, "-i", path, "-frames:v", "1", frame)
-	cmd := exec.Command("ffmpeg", args...)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		// Corrupt or truncated videos (e.g. missing moov atom) cannot be decoded;
-		// fall back to a content hash so they are still organized and exact duplicates grouped.
-		if thumb, hashErr := fileContentThumbprint(path); hashErr == nil {
-			fmt.Printf("Warning: %s is unreadable by ffmpeg (%s); using content hash\n", path, firstLine(stderr.String()))
-			return thumb, 0, 0, nil
-		}
-		return "", 0, 0, fmt.Errorf("extract middle frame: %w: %s", err, firstLine(stderr.String()))
+	var seeks []string
+	if duration, err := videoDuration(path); err == nil && duration > 0 {
+		seeks = append(seeks, fmt.Sprintf("%.3f", duration.Seconds()/2))
 	}
-	return imageThumbprint(frame)
+	// Fall back to the first frame when seeking yields no output (e.g. inaccurate duration).
+	seeks = append(seeks, "")
+
+	var lastErr error
+	for _, seek := range seeks {
+		os.Remove(frame)
+		args := []string{"-hide_banner", "-loglevel", "error", "-y"}
+		if seek != "" {
+			args = append(args, "-ss", seek)
+		}
+		args = append(args, "-i", path, "-frames:v", "1", frame)
+		cmd := exec.Command("ffmpeg", args...)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if err := cmd.Run(); err != nil {
+			lastErr = fmt.Errorf("extract middle frame: %w: %s", err, firstLine(stderr.String()))
+			continue
+		}
+		if info, err := os.Stat(frame); err != nil || info.Size() == 0 {
+			lastErr = fmt.Errorf("extract middle frame: ffmpeg produced no frame")
+			continue
+		}
+		return imageThumbprint(frame)
+	}
+	// Corrupt or truncated videos (e.g. missing moov atom) cannot be decoded;
+	// fall back to a content hash so they are still organized and exact duplicates grouped.
+	if thumb, hashErr := fileContentThumbprint(path); hashErr == nil {
+		fmt.Printf("Warning: %s is unreadable by ffmpeg (%v); using content hash\n", path, lastErr)
+		return thumb, 0, 0, nil
+	}
+	return "", 0, 0, lastErr
 }
 
 func firstLine(s string) string {
