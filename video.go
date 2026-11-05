@@ -2,7 +2,10 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,9 +32,36 @@ func videoThumbprint(path, tempDir string) (string, int, int, error) {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return "", 0, 0, fmt.Errorf("extract middle frame: %w: %s", err, strings.TrimSpace(stderr.String()))
+		// Corrupt or truncated videos (e.g. missing moov atom) cannot be decoded;
+		// fall back to a content hash so they are still organized and exact duplicates grouped.
+		if thumb, hashErr := fileContentThumbprint(path); hashErr == nil {
+			fmt.Printf("Warning: %s is unreadable by ffmpeg (%s); using content hash\n", path, firstLine(stderr.String()))
+			return thumb, 0, 0, nil
+		}
+		return "", 0, 0, fmt.Errorf("extract middle frame: %w: %s", err, firstLine(stderr.String()))
 	}
 	return imageThumbprint(frame)
+}
+
+func firstLine(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
+
+func fileContentThumbprint(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return "h" + hex.EncodeToString(h.Sum(nil))[:15], nil
 }
 
 func externalImageThumbprint(path string, decodeErr error) (string, int, int, error) {
