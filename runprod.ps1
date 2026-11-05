@@ -10,11 +10,7 @@ try {
         throw "Go build failed with exit code $LASTEXITCODE."
     }
 
-    @(
-        "D:\Data\PicturesStage"
-        "D:\Data\NetPictures"
-        "D:\Data\NetVideo"
-    ) | & $executable
+    & $executable -root "D:\Data\PicturesStage" -photo-out "D:\Data\NetPictures" -video-out "D:\Data\NetVideo"
 
     if ($LASTEXITCODE -ne 0) {
         throw "Photo Separator failed with exit code $LASTEXITCODE."
