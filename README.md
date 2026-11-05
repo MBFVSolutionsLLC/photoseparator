@@ -10,6 +10,8 @@ capture date, and organizes the files into dated photo and video output folders.
   - the root directory to scan
   - the photo output directory
   - the video output directory
+- Shows the application version with the source and destination folders and asks
+  for confirmation (`y`) before starting.
 - Recursively finds common photo and video files.
 - Skips the photo and video output directories if they are inside the root directory.
 - Requires output directories to differ from the root directory.
@@ -69,6 +71,8 @@ go run . -workers 12 -copy
 ```
 
 - `-workers`: number of concurrent file processors. Defaults to CPU count.
+- `-root`, `-photo-out`, `-video-out`: supply the folders instead of being
+  prompted for them. The confirmation prompt is still shown.
 - `-copy`: copy files instead of moving them.
 - `-dry-run`: print planned actions without moving or copying files.
 
