@@ -38,13 +38,12 @@ func inferDate(path string, kind MediaKind) time.Time {
 		candidates = append(candidates, folderDate)
 	}
 
-	if len(candidates) > 0 {
-		return chooseBestDate(candidates)
+	if info, err := os.Stat(path); err == nil {
+		candidates = append(candidates, olderFileTime(info))
 	}
 
-	info, err := os.Stat(path)
-	if err == nil {
-		return olderFileTime(info)
+	if len(candidates) > 0 {
+		return chooseBestDate(candidates)
 	}
 	return time.Now()
 }
@@ -60,10 +59,14 @@ func olderFileTime(info os.FileInfo) time.Time {
 
 func chooseBestDate(candidates []time.Time) time.Time {
 	now := time.Now().Add(24 * time.Hour)
+	var best time.Time
 	for _, candidate := range candidates {
-		if candidate.Year() >= 1850 && candidate.Before(now) {
-			return candidate
+		if candidate.Year() >= 1850 && candidate.Before(now) && (best.IsZero() || candidate.Before(best)) {
+			best = candidate
 		}
+	}
+	if !best.IsZero() {
+		return best
 	}
 	return candidates[0]
 }
