@@ -20,6 +20,9 @@ var filenameDatePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(\d{4})(\d{2})(\d{2})`),
 }
 
+// processedNamePattern matches names this tool generates; their dates are not trusted on re-processing.
+var processedNamePattern = regexp.MustCompile(`(?i)^\d{8}_\d{6}\.[0-9a-f]+\.\w+$`)
+
 func inferDate(path string, kind MediaKind) time.Time {
 	candidates := make([]time.Time, 0, 4)
 
@@ -31,7 +34,7 @@ func inferDate(path string, kind MediaKind) time.Time {
 	if metadataDate, err := mediaMetadataDate(path); err == nil && !metadataDate.IsZero() {
 		candidates = append(candidates, metadataDate)
 	}
-	if nameDate, ok := dateFromString(filepath.Base(path)); ok {
+	if nameDate, ok := dateFromString(filepath.Base(path)); ok && !processedNamePattern.MatchString(filepath.Base(path)) {
 		candidates = append(candidates, nameDate)
 	}
 
@@ -62,10 +65,24 @@ func chooseBestDate(candidates []time.Time) time.Time {
 			best = candidate
 		}
 	}
-	if !best.IsZero() {
-		return best
+	if best.IsZero() {
+		return candidates[0]
 	}
-	return candidates[0]
+	// A midnight value is treated as date-only; prefer a real time on the same day.
+	if best.Hour() == 0 && best.Minute() == 0 && best.Second() == 0 {
+		var precise time.Time
+		for _, candidate := range candidates {
+			if candidate.Year() == best.Year() && candidate.YearDay() == best.YearDay() &&
+				(candidate.Hour() != 0 || candidate.Minute() != 0 || candidate.Second() != 0) &&
+				(precise.IsZero() || candidate.Before(precise)) {
+				precise = candidate
+			}
+		}
+		if !precise.IsZero() {
+			return precise
+		}
+	}
+	return best
 }
 
 func dateFromString(value string) (time.Time, bool) {
