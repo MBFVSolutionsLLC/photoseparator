@@ -34,9 +34,6 @@ func inferDate(path string, kind MediaKind) time.Time {
 	if nameDate, ok := dateFromString(filepath.Base(path)); ok {
 		candidates = append(candidates, nameDate)
 	}
-	if folderDate, ok := dateFromString(filepath.Dir(path)); ok {
-		candidates = append(candidates, folderDate)
-	}
 
 	if info, err := os.Stat(path); err == nil {
 		candidates = append(candidates, olderFileTime(info))
