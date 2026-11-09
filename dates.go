@@ -20,6 +20,9 @@ var filenameDatePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(\d{4})(\d{2})(\d{2})`),
 }
 
+// processedNamePattern matches names this tool generates; their dates are not trusted on re-processing.
+var processedNamePattern = regexp.MustCompile(`(?i)^\d{8}_\d{6}\.[0-9a-f]+\.\w+$`)
+
 func inferDate(path string, kind MediaKind) time.Time {
 	candidates := make([]time.Time, 0, 4)
 
@@ -31,11 +34,8 @@ func inferDate(path string, kind MediaKind) time.Time {
 	if metadataDate, err := mediaMetadataDate(path); err == nil && !metadataDate.IsZero() {
 		candidates = append(candidates, metadataDate)
 	}
-	if nameDate, ok := dateFromString(filepath.Base(path)); ok {
+	if nameDate, ok := dateFromString(filepath.Base(path)); ok && !processedNamePattern.MatchString(filepath.Base(path)) {
 		candidates = append(candidates, nameDate)
-	}
-	if folderDate, ok := dateFromString(filepath.Dir(path)); ok {
-		candidates = append(candidates, folderDate)
 	}
 
 	if info, err := os.Stat(path); err == nil {

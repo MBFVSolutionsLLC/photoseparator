@@ -40,7 +40,6 @@ func main() {
 		Copy:         *copyMode,
 		DryRun:       *dryRun,
 		TempFrameDir: os.TempDir(),
-		Confirm:      waitForKey,
 	}
 
 	if err := Run(opts); err != nil {
