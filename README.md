@@ -22,6 +22,8 @@ capture date, and organizes the files into dated photo and video output folders.
 - Infers dates from JPEG EXIF, media metadata, filename patterns, parent folders,
   and file timestamps. The earlier valid Created or Modified timestamp takes
   precedence over a later inferred capture date for both photos and videos.
+  When date-only sources and timestamped sources identify the same date, the
+  selected date retains the available time of day.
 - Organizes files as:
 
 ```text

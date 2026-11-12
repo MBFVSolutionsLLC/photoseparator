@@ -65,24 +65,23 @@ func chooseBestDate(candidates []time.Time) time.Time {
 			best = candidate
 		}
 	}
-	if best.IsZero() {
-		return candidates[0]
-	}
-	// A midnight value is treated as date-only; prefer a real time on the same day.
-	if best.Hour() == 0 && best.Minute() == 0 && best.Second() == 0 {
-		var precise time.Time
+	if !best.IsZero() {
 		for _, candidate := range candidates {
-			if candidate.Year() == best.Year() && candidate.YearDay() == best.YearDay() &&
-				(candidate.Hour() != 0 || candidate.Minute() != 0 || candidate.Second() != 0) &&
-				(precise.IsZero() || candidate.Before(precise)) {
-				precise = candidate
+			if candidate.Year() < 1850 || !candidate.Before(now) ||
+				candidate.Year() != best.Year() || candidate.YearDay() != best.YearDay() {
+				continue
+			}
+			candidateHasTime := candidate.Hour() != 0 || candidate.Minute() != 0 ||
+				candidate.Second() != 0 || candidate.Nanosecond() != 0
+			bestHasTime := best.Hour() != 0 || best.Minute() != 0 ||
+				best.Second() != 0 || best.Nanosecond() != 0
+			if candidateHasTime && (!bestHasTime || candidate.Before(best)) {
+				best = candidate
 			}
 		}
-		if !precise.IsZero() {
-			return precise
-		}
+		return best
 	}
-	return best
+	return candidates[0]
 }
 
 func dateFromString(value string) (time.Time, bool) {
