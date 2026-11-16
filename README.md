@@ -95,6 +95,7 @@ failure and exits with a non-zero status.
 
 ## Publishing a Windows release
 
-Push a version tag such as `v1.0.0` to GitHub. The Windows release workflow
-tests and builds the application, then attaches `photoseparator.exe` to the
-GitHub Release for that tag.
+Push a version tag such as `v1.0.0` to GitHub to test and build the application,
+then attach `photoseparator.exe` to the GitHub Release for that tag. You can also
+start the workflow manually from the Actions tab at any time; manual runs test
+and build the application without publishing a release.
