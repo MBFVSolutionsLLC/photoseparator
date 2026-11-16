@@ -56,6 +56,11 @@ them to a temporary JPEG frame.
 
 ## Run
 
+For Windows, download `photoseparator.exe` from the repository's GitHub
+Releases and run it from a PowerShell or Command Prompt window. Optional
+`ffmpeg`, `ffprobe`, and ImageMagick tools must be installed separately and
+available on `PATH` for the formats and metadata features described above.
+
 ```powershell
 go run .
 ```
@@ -87,3 +92,9 @@ go run . -workers 12 -copy
 
 If any files are skipped or fail during processing, the application reports the
 failure and exits with a non-zero status.
+
+## Publishing a Windows release
+
+Push a version tag such as `v1.0.0` to GitHub. The Windows release workflow
+tests and builds the application, then attaches `photoseparator.exe` to the
+GitHub Release for that tag.
