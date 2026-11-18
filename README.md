@@ -66,8 +66,11 @@ go run .
 ```
 
 The application displays its version when it starts. After scanning and building
-the plan, it lists every source and destination and waits for a key on Windows
-(Enter on other platforms) before moving or copying any files.
+the plan, it lists every source and destination before moving or copying files.
+It reports the current phase immediately and repeats its status every five
+seconds while a phase is running. Analysis and file-action updates include
+completed counts; an unchanged count means the application is still waiting for
+an operation to finish, not necessarily that it is making progress.
 
 To build and run with the production directories configured in `runprod.ps1`:
 

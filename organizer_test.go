@@ -7,9 +7,53 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
+
+type progressWriter chan string
+
+func (w progressWriter) Write(p []byte) (int, error) {
+	w <- string(p)
+	return len(p), nil
+}
+
+func TestProgressReportsWhileWaitingAndStops(t *testing.T) {
+	output := make(progressWriter, 1024)
+	var count atomic.Int64
+	stop := startProgress(output, func() string {
+		if count.Load() == 0 {
+			return "Analyzing: 0/1 completed"
+		}
+		return "Analyzing: 1/1 completed"
+	}, 10*time.Millisecond)
+
+	if got := <-output; got != "Analyzing: 0/1 completed...\n" {
+		stop()
+		t.Fatalf("unexpected initial status: %q", got)
+	}
+	count.Store(1)
+	select {
+	case got := <-output:
+		if got != "Analyzing: 1/1 completed... still waiting\n" {
+			stop()
+			t.Fatalf("unexpected periodic status: %q", got)
+		}
+	case <-time.After(time.Second):
+		stop()
+		t.Fatal("periodic status was not reported")
+	}
+	stop()
+	for len(output) > 0 {
+		<-output
+	}
+	select {
+	case got := <-output:
+		t.Fatalf("unexpected status after stopping: %q", got)
+	case <-time.After(30 * time.Millisecond):
+	}
+}
 
 func TestBuildPlanSendsSmallerDuplicateToDuplicateFolder(t *testing.T) {
 	date := time.Date(2024, 5, 17, 21, 30, 45, 0, time.Local)
@@ -77,6 +121,17 @@ func TestRunReturnsErrorWhenFilesAreSkipped(t *testing.T) {
 	if !strings.Contains(output, "Skipped or failed files:\n  "+brokenFile+": ") {
 		t.Fatalf("failed file path and reason missing from output:\n%s", output)
 	}
+	for _, status := range []string{
+		"Checking folders...",
+		"Scanning folders for media files...",
+		"Analyzing media files: 0/1 completed...",
+		"Analyzed 1/1 media files",
+		"Building the file plan...",
+	} {
+		if !strings.Contains(output, status) {
+			t.Fatalf("missing status %q in output:\n%s", status, output)
+		}
+	}
 }
 
 func TestRunWaitsForConfirmationBeforeMovingFiles(t *testing.T) {
@@ -124,6 +179,9 @@ func TestRunWaitsForConfirmationBeforeMovingFiles(t *testing.T) {
 	}
 	if !strings.Contains(output, "Planned actions:\n  MOVE PHOTO: "+source+" -> "+photoOut) {
 		t.Fatalf("planned source and destination missing from output:\n%s", output)
+	}
+	if !strings.Contains(output, "Applying file actions: 0/1 completed (including failures)...") {
+		t.Fatalf("file action status missing from output:\n%s", output)
 	}
 	if _, err := os.Stat(source); !os.IsNotExist(err) {
 		t.Fatalf("source should be moved after confirmation, got %v", err)

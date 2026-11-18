@@ -9,20 +9,34 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 func Run(opts Options) error {
-	if err := validateOptions(opts); err != nil {
+	stopProgress := startProgress(os.Stdout, func() string { return "Checking folders" }, 5*time.Second)
+	err := validateOptions(opts)
+	stopProgress()
+	if err != nil {
 		return err
 	}
 
+	stopProgress = startProgress(os.Stdout, func() string { return "Scanning folders for media files" }, 5*time.Second)
 	files, err := scanMedia(opts.RootDir, opts.PhotoOutDir, opts.VideoOutDir)
+	stopProgress()
 	if err != nil {
 		return err
 	}
 	fmt.Printf("Found %d media files\n", len(files))
 
-	processed := processFiles(files, opts)
+	var analyzed atomic.Int64
+	stopProgress = startProgress(os.Stdout, func() string {
+		return fmt.Sprintf("Analyzing media files: %d/%d completed", analyzed.Load(), len(files))
+	}, 5*time.Second)
+	processed := processFiles(files, opts, &analyzed)
+	stopProgress()
+	fmt.Printf("Analyzed %d/%d media files\n", analyzed.Load(), len(files))
+
+	stopProgress = startProgress(os.Stdout, func() string { return "Building the file plan" }, 5*time.Second)
 	sort.Slice(processed, func(i, j int) bool {
 		return processed[i].Path < processed[j].Path
 	})
@@ -40,17 +54,32 @@ func Run(opts Options) error {
 	}
 
 	plan := buildPlan(successes, opts)
+	stopProgress()
 	printPlan(plan, opts)
 	if len(plan) > 0 && opts.Confirm != nil {
 		if err := opts.Confirm(); err != nil {
 			return fmt.Errorf("start confirmation: %w", err)
 		}
 	}
+	var applied atomic.Int64
+	if len(plan) > 0 {
+		phase := "Applying file actions"
+		if opts.DryRun {
+			phase = "Running dry run"
+		}
+		stopProgress = startProgress(os.Stdout, func() string {
+			return fmt.Sprintf("%s: %d/%d completed (including failures)", phase, applied.Load(), len(plan))
+		}, 5*time.Second)
+	}
 	for _, action := range plan {
 		if err := applyAction(action, opts); err != nil {
 			failures++
 			failedFiles = append(failedFiles, fileFailure{Path: action.Source, Err: err})
 		}
+		applied.Add(1)
+	}
+	if len(plan) > 0 {
+		stopProgress()
 	}
 
 	fmt.Printf("Done. Processed %d files, skipped or failed %d files.\n", len(plan), failures)
@@ -91,10 +120,32 @@ func validateOptions(opts Options) error {
 	return nil
 }
 
-func processFiles(files []MediaFile, opts Options) []ProcessedFile {
+func startProgress(out io.Writer, message func() string, interval time.Duration) func() {
+	fmt.Fprintf(out, "%s...\n", message())
+	ticker := time.NewTicker(interval)
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Fprintf(out, "%s... still waiting\n", message())
+			case <-stop:
+				return
+			}
+		}
+	}()
+	return func() {
+		ticker.Stop()
+		close(stop)
+		<-done
+	}
+}
+
+func processFiles(files []MediaFile, opts Options, done *atomic.Int64) []ProcessedFile {
 	jobs := make(chan MediaFile)
 	results := make(chan ProcessedFile)
-	var done atomic.Int64
 	var wg sync.WaitGroup
 
 	for i := 0; i < opts.Workers; i++ {
@@ -103,10 +154,6 @@ func processFiles(files []MediaFile, opts Options) []ProcessedFile {
 			defer wg.Done()
 			for file := range jobs {
 				results <- processOne(file, opts)
-				count := done.Add(1)
-				if count%25 == 0 {
-					fmt.Printf("Processed %d/%d\n", count, len(files))
-				}
 			}
 		}()
 	}
@@ -123,6 +170,7 @@ func processFiles(files []MediaFile, opts Options) []ProcessedFile {
 	var processed []ProcessedFile
 	for result := range results {
 		processed = append(processed, result)
+		done.Add(1)
 	}
 	return processed
 }
